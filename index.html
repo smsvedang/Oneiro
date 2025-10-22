@@ -1,0 +1,181 @@
+<!DOCTYPE html>
+<html lang="hi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>स्वप्न विश्लेषक | Dream Interpreter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f4f8;
+        }
+        .container {
+            max-width: 700px;
+        }
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body class="bg-gray-100 flex items-center justify-center min-h-screen py-8">
+    <div class="container bg-white w-full mx-4 p-6 sm:p-8 rounded-2xl shadow-lg">
+        <div class="text-center">
+            <h1 class="text-3xl font-bold text-gray-800">स्वप्न विश्लेषक</h1>
+            <p class="text-gray-600 mt-2">अपने सपनों के पीछे छिपे आध्यात्मिक और वैज्ञानिक रहस्यों को जानें।</p>
+        </div>
+
+        <div class="mt-8">
+            <label for="dreamInput" class="block text-sm font-medium text-gray-700 mb-2">अपना सपना यहाँ विस्तार से लिखें:</label>
+            <textarea id="dreamInput" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="उदाहरण: मैंने सपने में देखा कि मैं बादलों के ऊपर उड़ रहा हूँ..."></textarea>
+        </div>
+
+        <div class="mt-6 text-center">
+            <button onclick="getInterpretation()" id="submitBtn" class="bg-blue-600 text-white font-semibold py-3 px-8 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-4 focus:ring-blue-300 transition-transform transform hover:scale-105">
+                अर्थ जानें
+            </button>
+        </div>
+
+        <div id="result" class="mt-8">
+            <!-- Results will be displayed here -->
+        </div>
+
+        <div class="text-center text-xs text-gray-400 mt-8">
+            <p>&copy; 2025 Vedang Soni. All rights reserved.</p>
+        </div>
+    </div>
+
+    <script>
+        const dreamInput = document.getElementById('dreamInput');
+        const resultDiv = document.getElementById('result');
+        const submitBtn = document.getElementById('submitBtn');
+
+        async function getInterpretation() {
+            // महत्वपूर्ण: अपनी Gemini API कुंजी यहाँ डालें।
+            const apiKey = "AIzaSyCWUir05ATgwpAVP8tH6tbhVQAYBgO4_dA";
+
+            const dream = dreamInput.value.trim();
+
+            if (!dream) {
+                alert('कृपया अपना सपना लिखें।');
+                return;
+            }
+
+            if (apiKey === "AAPKI_GEMINI_API_KEY_YAHAN_DAALEN") {
+                alert('त्रुटि: कृपया डेवलपर से संपर्क करें और API कुंजी कॉन्फ़िगर करने के लिए कहें।');
+                resultDiv.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+                                           <p class="font-bold">API कुंजी कॉन्फ़िगर नहीं है।</p>
+                                       </div>`;
+                return;
+            }
+
+            // Show loader and disable button
+            resultDiv.innerHTML = '<div class="loader"></div>';
+            submitBtn.disabled = true;
+            submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+
+            const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+
+            // Prompt for the AI model
+            const prompt = `
+                Analyze the following dream from both a spiritual and a scientific/psychological perspective. The dream is described as: "${dream}".
+
+                Provide the analysis in Hindi (written in Latin script). Structure your response clearly with two distinct sections.
+                
+                Start the spiritual analysis with the marker "## AADHYATMIK VISHLESHAN".
+                Start the scientific/psychological analysis with the marker "## VAIGYANIK VISHLESHAN".
+
+                Keep the language simple and easy to understand for a general audience.
+            `;
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify({
+                        contents: [{
+                            parts: [{
+                                text: prompt
+                            }]
+                        }]
+                    })
+                });
+
+                if (!response.ok) {
+                    const errorData = await response.json();
+                    throw new Error(errorData.error.message || `API Error: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content.parts[0].text) {
+                    const content = data.candidates[0].content.parts[0].text;
+                    displayResult(content);
+                } else {
+                     // Handle cases where the response structure is unexpected or content is missing
+                    throw new Error('Unexpected API response format. No candidates found.');
+                }
+
+            } catch (error) {
+                resultDiv.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
+                                           <p class="font-bold">एक त्रुटि हुई!</p>
+                                           <p>${error.message}</p>
+                                           <p class="mt-3 font-semibold text-sm">संभावित समाधान:</p>
+                                           <ul class="list-disc list-inside text-sm mt-1">
+                                               <li>यह त्रुटि अक्सर Google Cloud प्रोजेक्ट कॉन्फ़िगरेशन के कारण होती है।</li>
+                                               <li>कृपया सुनिश्चित करें कि आपके Google Cloud प्रोजेक्ट में "Generative Language API" सक्षम (enabled) है।</li>
+                                               <li>यह भी जांच लें कि आपके प्रोजेक्ट के लिए बिलिंग सक्षम है, क्योंकि कुछ मॉडलों के लिए यह आवश्यक हो सकता है।</li>
+                                           </ul>
+                                       </div>`;
+            } finally {
+                // Re-enable button
+                submitBtn.disabled = false;
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+            }
+        }
+
+        function displayResult(content) {
+            let spiritual = "विश्लेषण उपलब्ध नहीं है।";
+            let scientific = "विश्लेषण उपलब्ध नहीं है।";
+
+            if (content.includes("## AADHYATMIK VISHLESHAN")) {
+                const parts = content.split("## VAIGYANIK VISHLESHAN");
+                spiritual = parts[0].replace("## AADHYATMIK VISHLESHAN", "").trim();
+                if (parts.length > 1) {
+                    scientific = parts[1].trim();
+                }
+            } else {
+                 // If markers are not found, display the whole text as a general analysis
+                 scientific = content;
+            }
+
+            resultDiv.innerHTML = `
+                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
+                    <h2 class="text-xl font-bold text-gray-800 mb-3">आध्यात्मिक विश्लेषण</h2>
+                    <p class="text-gray-700 whitespace-pre-wrap">${spiritual.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
+                </div>
+                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50">
+                    <h2 class="text-xl font-bold text-gray-800 mb-3">वैज्ञानिक/मनोवैज्ञानिक विश्लेषण</h2>
+                    <p class="text-gray-700 whitespace-pre-wrap">${scientific.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
+                </div>
+            `;
+        }
+    </script>
+</body>
+</html>
+
