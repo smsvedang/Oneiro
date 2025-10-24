@@ -11,10 +11,14 @@
   gtag('config', 'G-6P03DGKQQ5');
 </script>
     <meta name="google-site-verification" content="KegbdbkAaRREAjbbB0Ec3N83I3hvHh-Vt_ZEGt0ZdzE" />
-   <meta charset="UTF-8">
+  <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
     <!-- SEO Tags -->
     <title>Oneiro: AI Dream Analyzer & Journal</title>
+    <!-- Add placeholder favicon to prevent 404 error -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🌙</text></svg>">
+    
     <meta name="description" content="Unlock the secrets of your subconscious with Oneiro, an AI-powered dream analyzer and personal dream journal. Get spiritual and scientific interpretations.">
     <meta name="keywords" content="dream analyzer, dream interpreter, dream journal, dream meaning, ai dream analysis, spiritual dream meaning, scientific dream analysis">
 
@@ -61,14 +65,14 @@
             <h1 class="text-3xl font-bold text-gray-800">Oneiro</h1>
             <div class="flex items-center space-x-3">
                 <!-- These buttons are shown only when logged in -->
-                <button id="historyBtn" class_comment="This was authed-only" class="authed-only text-sm bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition">
+                <button id="historyBtn" class="authed-only text-sm bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition">
                     Dream History
                 </button>
-                <button id="logoutBtn" class_comment="This was authed-only" class="authed-only text-sm bg-red-100 text-red-700 font-medium py-2 px-4 rounded-lg hover:bg-red-200 transition">
+                <button id="logoutBtn" class="authed-only text-sm bg-red-100 text-red-700 font-medium py-2 px-4 rounded-lg hover:bg-red-200 transition">
                     Logout
                 </button>
                 
-                <!-- This button is shown only when logged OUT, or when anonymous -->
+                <!-- This button is shown only when logged OUT -->
                 <button id="loginBtn" class="text-sm bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition">
                     Login with Google
                 </button>
@@ -78,6 +82,11 @@
         <div class="text-center mt-6">
             <h2 class="text-xl font-semibold text-gray-700">AI Dream Analyzer & Journal</h2>
             <p class="text-gray-600 mt-2">Unlock the secrets of your subconscious. Get AI-powered dream analysis.</p>
+        </div>
+        
+        <!-- This div will show a message if login is needed -->
+        <div id="loginMessage" class="hidden mt-6 p-4 bg-yellow-50 border border-yellow-300 rounded-lg text-center text-yellow-800">
+            Please log in to save and analyze your dreams.
         </div>
 
         <div class="mt-8">
@@ -125,13 +134,13 @@
     <script>
         // --- ⚠️ 1. YOUR FIREBASE CONFIG GOES HERE ⚠️ ---
         const firebaseConfig = {
-    apiKey: "AIzaSyA_eqoKj8Mv6gnS7dGfuZ-X6LmSrCDDhCg",
-    authDomain: "oneiro-b79d9.firebaseapp.com",
-    projectId: "oneiro-b79d9",
-    storageBucket: "oneiro-b79d9.firebasestorage.app",
-    messagingSenderId: "288643438849",
-    appId: "1:288643438849:web:ca388425439c1ff3476300"
-  };
+            apiKey: "AIzaSyA_eqoKj8Mv6gnS7dGfuZ-X6LmSrCDDhCg",
+            authDomain: "oneiro-b79d9.firebaseapp.com",
+            projectId: "oneiro-b79d9",
+            storageBucket: "oneiro-b79d9.firebasestorage.app",
+            messagingSenderId: "288643438849",
+            appId: "1:288643438849:web:ca388425439c1ff3476300"
+        };
 
         // --- 2. Initialize Firebase ---
         firebase.initializeApp(firebaseConfig);
@@ -153,20 +162,18 @@
         const historyList = document.getElementById('historyList');
         const loginBtn = document.getElementById('loginBtn');
         const logoutBtn = document.getElementById('logoutBtn');
+        const loginMessage = document.getElementById('loginMessage');
         const authedElements = document.querySelectorAll('.authed-only');
 
         // --- 3. Authentication (Login/Logout) ---
 
         // Handle redirect result on page load
-        // This will still show an error in the console IN THIS ENVIRONMENT, 
-        // but it's needed for when the site is live.
         auth.getRedirectResult()
             .then((result) => {
                 if (result.user) {
                     console.log('Login successful via redirect.');
                 }
             }).catch((error) => {
-                // This error is expected in the preview environment
                 if (error.code !== 'auth/operation-not-supported-in-this-environment') {
                     console.error("Redirect Login Error:", error);
                 }
@@ -174,10 +181,8 @@
 
         // Login
         loginBtn.addEventListener('click', () => {
-            // Use signInWithRedirect
             auth.signInWithRedirect(googleProvider)
                 .catch((error) => {
-                    // This error is also expected in the preview environment
                     if (error.code !== 'auth/operation-not-supported-in-this-environment') {
                         console.error("Login Error:", error);
                     }
@@ -192,10 +197,10 @@
         // Listen for Auth Changes (Main Controller)
         auth.onAuthStateChanged(user => {
             if (user) {
-                // --- User is LOGGED IN (Google or Anonymous) ---
+                // --- User is LOGGED IN (Google) ---
                 currentUserId = user.uid;
-                console.log("User signed in:", user.uid, "Anonymous:", user.isAnonymous);
-                updateUIMode(true, user.isAnonymous); 
+                console.log("User signed in:", user.uid);
+                updateUIMode(true); 
                 listenToHistory(currentUserId); 
             } else {
                 // --- User is LOGGED OUT ---
@@ -206,34 +211,28 @@
                     unsubscribeHistory(); 
                 }
                 historyList.innerHTML = '<p class="text-gray-500">Please login to see your history.</p>';
-                
-                // *** FIX: Try anonymous sign-in for testing in this environment ***
-                // (इस एनवायरनमेंट में टेस्टिंग के लिए, एनोनिमस (anonymous) लॉगिन ट्राई करें)
-                console.log("No user, trying anonymous sign-in for testing...");
-                auth.signInAnonymously().catch(error => {
-                    console.error("Anonymous sign-in failed:", error);
-                    updateUIMode(false); // Keep showing logged-out state if it fails
-                });
             }
         });
 
         // UI Update Helper
-        function updateUIMode(isLoggedIn, isAnonymous = false) {
+        function updateUIMode(isLoggedIn) {
             authedElements.forEach(el => {
-                // Show history and logout buttons if logged in (any type)
                 el.style.display = isLoggedIn ? 'inline-block' : 'none';
             });
 
-            // Show "Login with Google" if logged OUT, or if logged in as ANONYMOUS
-            // (अगर लॉग आउट हैं, या एनोनिमस (anonymous) हैं, तो 'Login with Google' बटन दिखाएँ)
-            loginBtn.style.display = !isLoggedIn || isAnonymous ? 'inline-block' : 'none';
+            loginBtn.style.display = isLoggedIn ? 'none' : 'inline-block';
             
-            // Adjust logout button text for clarity
-            // (अगर एनोनिमस (anonymous) हैं, तो लॉग आउट बटन का टेक्स्ट बदलें)
-            if (isLoggedIn && isAnonymous) {
-                logoutBtn.textContent = "Logout (Test)";
-            } else if (isLoggedIn) {
-                logoutBtn.textContent = "Logout";
+            // Show/hide main UI elements based on login
+            loginMessage.style.display = isLoggedIn ? 'none' : 'block';
+            submitBtn.disabled = !isLoggedIn;
+            dreamInput.disabled = !isLoggedIn;
+
+            if (!isLoggedIn) {
+                submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
+                dreamInput.classList.add('bg-gray-100');
+            } else {
+                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                dreamInput.classList.remove('bg-gray-100');
             }
         }
 
@@ -254,6 +253,7 @@
 
         // --- 5. Firestore (Database) Logic ---
         function listenToHistory(uid) {
+            // Order by 'id' (which is timestamp) in descending order to show newest first
             const dreamsCollection = db.collection('users').doc(uid).collection('dreams').orderBy('id', 'desc');
 
             unsubscribeHistory = dreamsCollection.onSnapshot(snapshot => {
@@ -271,6 +271,7 @@
         async function saveHistory(newEntry) {
             if (!currentUserId) return; 
 
+            // Use the timestamp 'id' as the document ID
             const dreamDocRef = db.collection('users').doc(currentUserId).collection('dreams').doc(newEntry.id.toString());
             try {
                 await dreamDocRef.set(newEntry); 
@@ -343,9 +344,9 @@
                 return;
             }
             
-            // *** FIX: Check for login before analyzing ***
+            // Check for login (this should be handled by disabling the button, but as a safeguard)
             if (!currentUserId) {
-                alert("Please wait... still trying to log you in for testing.");
+                alert("Please login first.");
                 return;
             }
 
@@ -353,6 +354,7 @@
             submitBtn.disabled = true;
             submitBtn.classList.add('opacity-50', 'cursor-not-allowed');
 
+            // Using the model confirmed via curl
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
             const prompt = `
@@ -392,7 +394,10 @@
                 displayError(error);
             } finally {
                 submitBtn.disabled = false;
-                submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                // Re-check login status before re-enabling
+                if(currentUserId) {
+                    submitBtn.classList.remove('opacity-50', 'cursor-not-allowed');
+                }
             }
         }
 
@@ -402,49 +407,64 @@
             let scientific = "Analysis not available.";
 
             try {
+                // Parse Title
                 if (content.includes("## TITLE")) {
                     title = content.split("## TITLE")[1].split("## SPIRITUAL ANALYSIS")[0].trim();
                 }
+                // Parse Spiritual
                 if (content.includes("## SPIRITUAL ANALYSIS")) {
                     spiritual = content.split("## SPIRITUAL ANALYSIS")[1].split("## SCIENTIFIC ANALYSIS")[0].trim();
                 }
+                // Parse Scientific
                 if (content.includes("## SCIENTIFIC ANALYSIS")) {
                     scientific = content.split("## SCIENTIFIC ANALYSIS")[1].trim();
-                } else {
+                } else if (content.includes("## SPIRITUAL ANALYSIS")) {
+                    // Fallback if SCIENTIFIC tag is missing
                     spiritual = content.split("## SPIRITUAL ANALYSIS")[1].trim();
                 }
             } catch (e) {
                 console.error("Error parsing AI response:", e);
-                scientific = content.replace("## TITLE", "").replace(title, "").trim(); 
+                // Fallback: show raw content if parsing fails
+                scientific = content.replace("## TITLE", "").replace(title, "").replace("## SPIRITUAL ANALYSIS", "").replace("## SCIENTIFIC ANALYSIS", "").trim(); 
             }
 
             const newEntry = {
-                id: Date.now(), 
+                id: Date.now(), // Use timestamp as a unique ID
                 date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                title: title.replace(/\*\*/g, ''),
+                title: title.replace(/\*\*/g, ''), // Clean title
                 dream: dreamText,
                 spiritual: spiritual,
                 scientific: scientific
             };
 
+            // Save to Firestore
             saveHistory(newEntry);
             
+            // Display the new result
             showSavedResult(newEntry); 
-            dreamInput.value = ""; 
+            dreamInput.value = ""; // Clear input box
         }
 
+        // Renders a dream entry (new or old) into the main resultDiv
         function showSavedResult(entry) {
+            // Function to format text (bold, italics)
+            const formatText = (text) => {
+                return text
+                    .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // Bold
+                    .replace(/\*(.*?)\*/g, '<em>$1</em>'); // Italics
+            };
+            
             resultDiv.innerHTML = `
                 <div class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Spiritual Analysis</h2>
-                    <p class="text-gray-700 whitespace-pre-wrap">${entry.spiritual.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
+                    <p class="text-gray-700 whitespace-pre-wrap">${formatText(entry.spiritual)}</p>
                 </div>
                 <div class="p-4 sm:p-5 rounded-xl border bg-gray-50">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Scientific/Psychological Analysis</h2>
-                    <p class="text-gray-700 whitespace-pre-wrap">${entry.scientific.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
+                    <p class="text-gray-700 whitespace-pre-wrap">${formatText(entry.scientific)}</p>
                 </div>
                 <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
-                    <h4 class="font-semibold text-blue-800">Your Original Dream:</h4>
+                    <h4 class="font-semibold text-blue-800">Your Original Dream (from ${entry.date}):</h4>
                     <p class="text-gray-700 italic mt-2 whitespace-pre-wrap">"${entry.dream}"</p>
                 </div>
             `;
@@ -454,7 +474,7 @@
              resultDiv.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
                                        <p class="font-bold">An error occurred!</p>
                                        <p>${error.message}</p>
-                                       <p classExample: "models/gemini-2.0-flash is not found". This is often due to Google Cloud project configuration.</p>
+                                       <p class="text-sm mt-2">Example: "models/gemini-2.0-flash is not found". This is often due to Google Cloud project configuration.</p>
                                        <ul class="list-disc list-inside text-sm mt-1">
                                            <li>Please ensure the "Generative Language API" is enabled in your Google Cloud project.</li>
                                            <li>Also, check if billing is enabled for your project, as it might be required for some models.</li>
