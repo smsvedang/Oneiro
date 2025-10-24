@@ -47,17 +47,32 @@
         #historyModal.hidden {
             display: none;
         }
+        /* Hide elements by default */
+        .authed-only {
+            display: none;
+        }
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen py-8">
     <div class="container bg-white w-full mx-4 p-6 sm:p-8 rounded-2xl shadow-lg relative">
         
-        <!-- Header with History Button -->
+        <!-- Header with Login/History Buttons -->
         <header class="flex justify-between items-center pb-4 border-b border-gray-200">
             <h1 class="text-3xl font-bold text-gray-800">Oneiro</h1>
-            <button id="historyBtn" class="text-sm bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition">
-                Dream History
-            </button>
+            <div class="flex items-center space-x-3">
+                <!-- These buttons are shown only when logged in -->
+                <button id="historyBtn" class_comment="This was authed-only" class="authed-only text-sm bg-gray-100 text-gray-700 font-medium py-2 px-4 rounded-lg hover:bg-gray-200 transition">
+                    Dream History
+                </button>
+                <button id="logoutBtn" class_comment="This was authed-only" class="authed-only text-sm bg-red-100 text-red-700 font-medium py-2 px-4 rounded-lg hover:bg-red-200 transition">
+                    Logout
+                </button>
+                
+                <!-- This button is shown only when logged OUT, or when anonymous -->
+                <button id="loginBtn" class="text-sm bg-blue-600 text-white font-medium py-2 px-4 rounded-lg hover:bg-blue-700 transition">
+                    Login with Google
+                </button>
+            </div>
         </header>
 
         <div class="text-center mt-6">
@@ -97,24 +112,133 @@
             </header>
             <div id="historyList" class="p-6 overflow-y-auto">
                 <!-- History items will be injected here by JS -->
+                <p class="text-gray-500">Loading history...</p>
             </div>
         </div>
     </div>
 
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-auth-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.10/firebase-firestore-compat.js"></script>
+
     <script>
+        // --- ⚠️ 1. YOUR FIREBASE CONFIG GOES HERE ⚠️ ---
+        const firebaseConfig = {
+    apiKey: "AIzaSyA_eqoKj8Mv6gnS7dGfuZ-X6LmSrCDDhCg",
+    authDomain: "oneiro-b79d9.firebaseapp.com",
+    projectId: "oneiro-b79d9",
+    storageBucket: "oneiro-b79d9.firebasestorage.app",
+    messagingSenderId: "288643438849",
+    appId: "1:288643438849:web:ca388425439c1ff3476300"
+  };
+
+        // --- 2. Initialize Firebase ---
+        firebase.initializeApp(firebaseConfig);
+        const auth = firebase.auth();
+        const db = firebase.firestore();
+        const googleProvider = new firebase.auth.GoogleAuthProvider();
+        
+        // --- Global Variables ---
+        let currentUserId = null;
+        let unsubscribeHistory = null; // To stop listening to updates when logged out
+
+        // --- UI Elements ---
         const dreamInput = document.getElementById('dreamInput');
         const resultDiv = document.getElementById('result');
         const submitBtn = document.getElementById('submitBtn');
-        
-        // Modal elements
         const historyBtn = document.getElementById('historyBtn');
         const historyModal = document.getElementById('historyModal');
         const closeModalBtn = document.getElementById('closeModalBtn');
         const historyList = document.getElementById('historyList');
+        const loginBtn = document.getElementById('loginBtn');
+        const logoutBtn = document.getElementById('logoutBtn');
+        const authedElements = document.querySelectorAll('.authed-only');
 
-        // --- History Modal Logic ---
+        // --- 3. Authentication (Login/Logout) ---
+
+        // Handle redirect result on page load
+        // This will still show an error in the console IN THIS ENVIRONMENT, 
+        // but it's needed for when the site is live.
+        auth.getRedirectResult()
+            .then((result) => {
+                if (result.user) {
+                    console.log('Login successful via redirect.');
+                }
+            }).catch((error) => {
+                // This error is expected in the preview environment
+                if (error.code !== 'auth/operation-not-supported-in-this-environment') {
+                    console.error("Redirect Login Error:", error);
+                }
+            });
+
+        // Login
+        loginBtn.addEventListener('click', () => {
+            // Use signInWithRedirect
+            auth.signInWithRedirect(googleProvider)
+                .catch((error) => {
+                    // This error is also expected in the preview environment
+                    if (error.code !== 'auth/operation-not-supported-in-this-environment') {
+                        console.error("Login Error:", error);
+                    }
+                });
+        });
+
+        // Logout
+        logoutBtn.addEventListener('click', () => {
+            auth.signOut();
+        });
+
+        // Listen for Auth Changes (Main Controller)
+        auth.onAuthStateChanged(user => {
+            if (user) {
+                // --- User is LOGGED IN (Google or Anonymous) ---
+                currentUserId = user.uid;
+                console.log("User signed in:", user.uid, "Anonymous:", user.isAnonymous);
+                updateUIMode(true, user.isAnonymous); 
+                listenToHistory(currentUserId); 
+            } else {
+                // --- User is LOGGED OUT ---
+                currentUserId = null;
+                console.log("User signed out.");
+                updateUIMode(false); 
+                if (unsubscribeHistory) {
+                    unsubscribeHistory(); 
+                }
+                historyList.innerHTML = '<p class="text-gray-500">Please login to see your history.</p>';
+                
+                // *** FIX: Try anonymous sign-in for testing in this environment ***
+                // (इस एनवायरनमेंट में टेस्टिंग के लिए, एनोनिमस (anonymous) लॉगिन ट्राई करें)
+                console.log("No user, trying anonymous sign-in for testing...");
+                auth.signInAnonymously().catch(error => {
+                    console.error("Anonymous sign-in failed:", error);
+                    updateUIMode(false); // Keep showing logged-out state if it fails
+                });
+            }
+        });
+
+        // UI Update Helper
+        function updateUIMode(isLoggedIn, isAnonymous = false) {
+            authedElements.forEach(el => {
+                // Show history and logout buttons if logged in (any type)
+                el.style.display = isLoggedIn ? 'inline-block' : 'none';
+            });
+
+            // Show "Login with Google" if logged OUT, or if logged in as ANONYMOUS
+            // (अगर लॉग आउट हैं, या एनोनिमस (anonymous) हैं, तो 'Login with Google' बटन दिखाएँ)
+            loginBtn.style.display = !isLoggedIn || isAnonymous ? 'inline-block' : 'none';
+            
+            // Adjust logout button text for clarity
+            // (अगर एनोनिमस (anonymous) हैं, तो लॉग आउट बटन का टेक्स्ट बदलें)
+            if (isLoggedIn && isAnonymous) {
+                logoutBtn.textContent = "Logout (Test)";
+            } else if (isLoggedIn) {
+                logoutBtn.textContent = "Logout";
+            }
+        }
+
+        // --- 4. History Modal Logic (No changes needed) ---
         historyBtn.addEventListener('click', () => {
-            renderHistory();
             historyModal.classList.remove('hidden');
         });
 
@@ -128,21 +252,34 @@
             }
         });
 
-        // --- Local Storage Logic ---
-        const HISTORY_KEY = 'oneiroDreamHistory';
+        // --- 5. Firestore (Database) Logic ---
+        function listenToHistory(uid) {
+            const dreamsCollection = db.collection('users').doc(uid).collection('dreams').orderBy('id', 'desc');
 
-        function loadHistory() {
-            return JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]');
+            unsubscribeHistory = dreamsCollection.onSnapshot(snapshot => {
+                const history = [];
+                snapshot.forEach(doc => {
+                    history.push(doc.data());
+                });
+                renderHistoryList(history); 
+            }, error => {
+                console.error("Error listening to history: ", error);
+                historyList.innerHTML = '<p class="text-red-500">Could not load history.</p>';
+            });
         }
 
-        function saveHistory(newEntry) {
-            let history = loadHistory();
-            history.unshift(newEntry);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
+        async function saveHistory(newEntry) {
+            if (!currentUserId) return; 
+
+            const dreamDocRef = db.collection('users').doc(currentUserId).collection('dreams').doc(newEntry.id.toString());
+            try {
+                await dreamDocRef.set(newEntry); 
+            } catch (error) {
+                console.error("Error saving dream: ", error);
+            }
         }
 
-        function renderHistory() {
-            let history = loadHistory();
+        function renderHistoryList(history) {
             if (history.length === 0) {
                 historyList.innerHTML = '<p class="text-gray-500">No dreams saved yet.</p>';
                 return;
@@ -162,12 +299,11 @@
                 </div>
             `).join('');
 
-            // Add click listeners to history items
+            // Click listener to VIEW old dream
             historyList.querySelectorAll('[data-id]').forEach(item => {
                 item.addEventListener('click', () => {
                     const id = item.getAttribute('data-id');
-                    const history = loadHistory(); // Re-load history to get fresh data
-                    const entry = history.find(e => e.id == id);
+                    const entry = history.find(e => e.id == id); 
                     if (entry) {
                         showSavedResult(entry);
                         historyModal.classList.add('hidden');
@@ -176,30 +312,40 @@
                 });
             });
 
-            // Add click listeners for delete buttons
+            // Click listener to DELETE dream
             historyList.querySelectorAll('[data-delete-id]').forEach(button => {
                 button.addEventListener('click', (e) => {
                     e.stopPropagation();
                     const id = button.getAttribute('data-delete-id');
-                    deleteHistoryItem(id);
+                    deleteHistoryItem(id); 
                 });
             });
         }
 
-        function deleteHistoryItem(id) {
-            let history = loadHistory();
-            history = history.filter(entry => entry.id != id);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            renderHistory();
+        async function deleteHistoryItem(id) {
+            if (!currentUserId) return;
+
+            const dreamDocRef = db.collection('users').doc(currentUserId).collection('dreams').doc(id.toString());
+            try {
+                await dreamDocRef.delete(); 
+            } catch (error) {
+                console.error("Error deleting dream: ", error);
+            }
         }
         
-        // --- Core API Logic ---
+        // --- 6. Core API Logic (Mostly Unchanged) ---
         async function getInterpretation() {
             const apiKey = "AIzaSyCWUir05ATgwpAVP8tH6tbhVQAYBgO4_dA";
             const dream = dreamInput.value.trim();
 
             if (!dream) {
                 alert('Please enter your dream description.');
+                return;
+            }
+            
+            // *** FIX: Check for login before analyzing ***
+            if (!currentUserId) {
+                alert("Please wait... still trying to log you in for testing.");
                 return;
             }
 
@@ -209,20 +355,14 @@
 
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-            // *** UPDATED PROMPT FOR MULTI-LANGUAGE SUPPORT ***
             const prompt = `
                 Analyze the following dream: "${dream}"
-
                 Your primary task is to detect the language of the dream (e.g., English, Hindi, Hinglish, Spanish, etc.).
                 You MUST provide the entire response *in that same language*.
-
                 The response must include three distinct parts, using these exact markers:
-                
                 1.  Start with "## TITLE": A short, catchy title for this dream (max 5-7 words).
                 2.  Start with "## SPIRITUAL ANALYSIS": A spiritual analysis of the dream.
                 3.  Start with "## SCIENTIFIC ANALYSIS": A scientific or psychological analysis of the dream.
-
-                For example, if the dream is in Hindi, the TITLE, SPIRITUAL ANALYSIS, and SCIENTIFIC ANALYSIS must all be written in Hindi.
             `;
 
             try {
@@ -271,40 +411,39 @@
                 if (content.includes("## SCIENTIFIC ANALYSIS")) {
                     scientific = content.split("## SCIENTIFIC ANALYSIS")[1].trim();
                 } else {
-                    // Fallback if markers are missing but title is present
                     spiritual = content.split("## SPIRITUAL ANALYSIS")[1].trim();
                 }
             } catch (e) {
                 console.error("Error parsing AI response:", e);
-                // Fallback: Show raw content if parsing fails
                 scientific = content.replace("## TITLE", "").replace(title, "").trim(); 
             }
 
             const newEntry = {
-                id: Date.now(),
+                id: Date.now(), 
                 date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                title: title.replace(/\*\*/g, ''), // Remove markdown
+                title: title.replace(/\*\*/g, ''),
                 dream: dreamText,
                 spiritual: spiritual,
                 scientific: scientific
             };
 
             saveHistory(newEntry);
-            showSavedResult(newEntry);
-            dreamInput.value = ""; // Clear the text area after successful analysis
+            
+            showSavedResult(newEntry); 
+            dreamInput.value = ""; 
         }
 
         function showSavedResult(entry) {
             resultDiv.innerHTML = `
-                <div classReadonly class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
+                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Spiritual Analysis</h2>
                     <p class="text-gray-700 whitespace-pre-wrap">${entry.spiritual.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
                 </div>
-                <div classReadonly class="p-4 sm:p-5 rounded-xl border bg-gray-50">
+                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Scientific/Psychological Analysis</h2>
                     <p class="text-gray-700 whitespace-pre-wrap">${entry.scientific.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
                 </div>
-                <div classReadonly class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 class="font-semibold text-blue-800">Your Original Dream:</h4>
                     <p class="text-gray-700 italic mt-2 whitespace-pre-wrap">"${entry.dream}"</p>
                 </div>
@@ -322,7 +461,6 @@
                                        </ul>
                                    </div>`;
         }
-
     </script>
 </body>
 </html>
