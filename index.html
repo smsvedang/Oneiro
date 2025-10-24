@@ -11,13 +11,12 @@
   gtag('config', 'G-6P03DGKQQ5');
 </script>
     <meta name="google-site-verification" content="KegbdbkAaRREAjbbB0Ec3N83I3hvHh-Vt_ZEGt0ZdzE" />
-    <meta charset="UTF-8">
+   <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <!-- SEO Tags -->
     <title>Oneiro: AI Dream Analyzer & Journal</title>
     <meta name="description" content="Unlock the secrets of your subconscious with Oneiro, an AI-powered dream analyzer and personal dream journal. Get spiritual and scientific interpretations.">
-    
-    <meta name="keywords" content="dream analyzer, dream interpreter, dream journal, dream meaning, ai dream analysis, spiritual dream meaning, scientific dream analysis, sapno ka arth, sapna, dream, Oneiro, Oneiro dream analyser">
+    <meta name="keywords" content="dream analyzer, dream interpreter, dream journal, dream meaning, ai dream analysis, spiritual dream meaning, scientific dream analysis">
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -51,10 +50,6 @@
     </style>
 </head>
 <body class="bg-gray-100 flex items-center justify-center min-h-screen py-8">
-    <!-- Google Tag Manager (noscript) -->
-<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-P6V5TJ5H"
-height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
-<!-- End Google Tag Manager (noscript) -->
     <div class="container bg-white w-full mx-4 p-6 sm:p-8 rounded-2xl shadow-lg relative">
         
         <!-- Header with History Button -->
@@ -72,7 +67,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         <div class="mt-8">
             <label for="dreamInput" class="block text-sm font-medium text-gray-700 mb-2">Describe your dream in detail here:</label>
-            <textarea id="dreamInput" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Example: I had a dream that I was flying above the clouds..."></textarea>
+            <textarea id="dreamInput" rows="5" class="w-full p-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition" placeholder="Example: I had a dream that I was flying... / मैंने सपने में देखा कि मैं उड़ रहा हूँ..."></textarea>
         </div>
 
         <div class="mt-6 text-center">
@@ -127,7 +122,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             historyModal.classList.add('hidden');
         });
 
-        // Close modal if clicking outside the content
         historyModal.addEventListener('click', (e) => {
             if (e.target === historyModal) {
                 historyModal.classList.add('hidden');
@@ -143,7 +137,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
         function saveHistory(newEntry) {
             let history = loadHistory();
-            history.unshift(newEntry); // Add new entry to the beginning
+            history.unshift(newEntry);
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
         }
 
@@ -172,12 +166,12 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             historyList.querySelectorAll('[data-id]').forEach(item => {
                 item.addEventListener('click', () => {
                     const id = item.getAttribute('data-id');
-                    const history = loadHistory();
+                    const history = loadHistory(); // Re-load history to get fresh data
                     const entry = history.find(e => e.id == id);
                     if (entry) {
                         showSavedResult(entry);
                         historyModal.classList.add('hidden');
-                        window.scrollTo(0, document.body.scrollHeight); // Scroll to result
+                        window.scrollTo(0, document.body.scrollHeight);
                     }
                 });
             });
@@ -185,7 +179,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             // Add click listeners for delete buttons
             historyList.querySelectorAll('[data-delete-id]').forEach(button => {
                 button.addEventListener('click', (e) => {
-                    e.stopPropagation(); // Prevent the view click
+                    e.stopPropagation();
                     const id = button.getAttribute('data-delete-id');
                     deleteHistoryItem(id);
                 });
@@ -196,7 +190,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
             let history = loadHistory();
             history = history.filter(entry => entry.id != id);
             localStorage.setItem(HISTORY_KEY, JSON.stringify(history));
-            renderHistory(); // Re-render the list immediately
+            renderHistory();
         }
         
         // --- Core API Logic ---
@@ -215,15 +209,20 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 
             const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
 
-            // Updated prompt to ask for a title
+            // *** UPDATED PROMPT FOR MULTI-LANGUAGE SUPPORT ***
             const prompt = `
-                Analyze the following dream: "${dream}".
+                Analyze the following dream: "${dream}"
 
-                1.  First, create a short, catchy title for this dream (max 5 words). Start this title with the marker "## TITLE".
-                2.  Second, provide a spiritual analysis. Start with "## SPIRITUAL ANALYSIS".
-                3.  Third, provide a scientific/psychological analysis. Start with "## SCIENTIFIC ANALYSIS".
+                Your primary task is to detect the language of the dream (e.g., English, Hindi, Hinglish, Spanish, etc.).
+                You MUST provide the entire response *in that same language*.
 
-                Provide the entire response in English. Keep the language simple.
+                The response must include three distinct parts, using these exact markers:
+                
+                1.  Start with "## TITLE": A short, catchy title for this dream (max 5-7 words).
+                2.  Start with "## SPIRITUAL ANALYSIS": A spiritual analysis of the dream.
+                3.  Start with "## SCIENTIFIC ANALYSIS": A scientific or psychological analysis of the dream.
+
+                For example, if the dream is in Hindi, the TITLE, SPIRITUAL ANALYSIS, and SCIENTIFIC ANALYSIS must all be written in Hindi.
             `;
 
             try {
@@ -244,7 +243,6 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 
                 if (data.candidates && data.candidates.length > 0 && data.candidates[0].content.parts[0].text) {
                     const content = data.candidates[0].content.parts[0].text;
-                    // New function to parse, save, and display
                     parseAndShowResult(content, dream);
                 } else {
                     throw new Error('Unexpected API response format.');
@@ -272,41 +270,41 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
                 }
                 if (content.includes("## SCIENTIFIC ANALYSIS")) {
                     scientific = content.split("## SCIENTIFIC ANALYSIS")[1].trim();
+                } else {
+                    // Fallback if markers are missing but title is present
+                    spiritual = content.split("## SPIRITUAL ANALYSIS")[1].trim();
                 }
             } catch (e) {
                 console.error("Error parsing AI response:", e);
                 // Fallback: Show raw content if parsing fails
-                scientific = content; 
+                scientific = content.replace("## TITLE", "").replace(title, "").trim(); 
             }
 
             const newEntry = {
                 id: Date.now(),
                 date: new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' }),
-                title: title.replace(/\*\*/g, ''), // Remove markdown from title
+                title: title.replace(/\*\*/g, ''), // Remove markdown
                 dream: dreamText,
                 spiritual: spiritual,
                 scientific: scientific
             };
 
-            // Save to local storage
             saveHistory(newEntry);
-            
-            // Display on page
             showSavedResult(newEntry);
+            dreamInput.value = ""; // Clear the text area after successful analysis
         }
 
         function showSavedResult(entry) {
-            // This function now displays a history entry object
             resultDiv.innerHTML = `
-                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
+                <div classReadonly class="p-4 sm:p-5 rounded-xl border bg-gray-50 mb-5">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Spiritual Analysis</h2>
                     <p class="text-gray-700 whitespace-pre-wrap">${entry.spiritual.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
                 </div>
-                <div class="p-4 sm:p-5 rounded-xl border bg-gray-50">
+                <div classReadonly class="p-4 sm:p-5 rounded-xl border bg-gray-50">
                     <h2 class="text-xl font-bold text-gray-800 mb-3">Scientific/Psychological Analysis</h2>
                     <p class="text-gray-700 whitespace-pre-wrap">${entry.scientific.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>').replace(/\*(.*?)\*/g, '<em>$1</em>')}</p>
                 </div>
-                <div class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
+                <div classReadonly class="mt-4 p-4 bg-blue-50 rounded-lg border border-blue-200">
                     <h4 class="font-semibold text-blue-800">Your Original Dream:</h4>
                     <p class="text-gray-700 italic mt-2 whitespace-pre-wrap">"${entry.dream}"</p>
                 </div>
@@ -317,9 +315,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
              resultDiv.innerHTML = `<div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 rounded-lg">
                                        <p class="font-bold">An error occurred!</p>
                                        <p>${error.message}</p>
-                                       <p class="mt-3 font-semibold text-sm">Possible Solutions:</p>
+                                       <p classExample: "models/gemini-2.0-flash is not found". This is often due to Google Cloud project configuration.</p>
                                        <ul class="list-disc list-inside text-sm mt-1">
-                                           <li>This error is often due to Google Cloud project configuration.</li>
                                            <li>Please ensure the "Generative Language API" is enabled in your Google Cloud project.</li>
                                            <li>Also, check if billing is enabled for your project, as it might be required for some models.</li>
                                        </ul>
@@ -329,9 +326,4 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     </script>
 </body>
 </html>
-
-
-
-
-
 
